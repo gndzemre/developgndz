@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "SessionStart":       [{ "hooks": [{ "type": "command", "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/adim_kaydi.py"] }] }],
+    "UserPromptSubmit":   [{ "hooks": [{ "type": "command", "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/adim_kaydi.py"] }] }],
+    "PostToolUse":        [{ "matcher": "*", "hooks": [{ "type": "command", "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/adim_kaydi.py"] }] }],
+    "PostToolUseFailure": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/adim_kaydi.py"] }] }],
+    "SubagentStop":       [{ "hooks": [{ "type": "command", "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/adim_kaydi.py"] }] }],
+    "Stop":               [{ "hooks": [{ "type": "command", "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/adim_kaydi.py"] }] }],
+    "SessionEnd":         [{ "hooks": [{ "type": "command", "command": "python", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/adim_kaydi.py"] }] }]
+  }
+}

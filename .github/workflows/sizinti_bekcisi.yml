@@ -1,0 +1,55 @@
+name: Sizinti Bekcisi (TruffleHog)
+
+# GNDZ sızıntı bekçisi — HER `*/kod/` reposunda bulunur (kök CLAUDE.md kuralı).
+# Kalıp: ortak/sablonlar/sizinti_bekcisi.yml · kurulum/denetim:
+#   bash altyapi/git_araclari/bekci_kur.sh [--uygula]
+#
+# 🔴 `base:` ve `head:` ASLA VERİLMEZ — bu bir tercih değil, ölçülmüş bir arıza.
+# 2026-08-28 → 2026-09-06 arası elite-garden-panel deposunda şu satırlar duruyordu:
+#       base: ${{ github.event.repository.default_branch }}   # = "main"
+#       head: HEAD
+# `main`'e push edildiğinde ikisi de AYNI commit'e çözülüyor; action'ın kendi
+# kaynağı bu durumda "BASE and HEAD commits are the same" deyip çıkış kodu 1
+# veriyor. Sonuç: 24 push boyunca bekçi HİÇ tarama yapmadı, her seferinde
+# "başarısız" maili attı ve gerçek bir bulgu gibi değil gürültü gibi göründü.
+# Action bu iki değeri push/PR olayından zaten kendisi hesaplıyor; üst kaynağın
+# README'si elle vermeyi "yalnızca çok özel durumlar için" öneriyor.
+#
+# Dört tetikleyicinin kapsamı (action'ın kendi kaynağından doğrulandı):
+#   push              → yalnız o push'un getirdiği değişiklik taranır (hızlı)
+#   pull_request      → yalnız dalın değişikliği taranır
+#   schedule          → base/head boş kalır → TÜM GEÇMİŞ taranır
+#   workflow_dispatch → base/head boş kalır → TÜM GEÇMİŞ taranır
+# Haftalık tam tarama şart: push taraması yalnız yeni değişikliğe bakar, bekçi
+# kurulmadan ÖNCE girmiş bir sır hiçbir push taramasında görünmez.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 4 * * 1"   # her Pazartesi 04:00 UTC — tüm geçmiş
+  workflow_dispatch:       # elle tetikleme — tüm geçmiş
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Scan for secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 🔴 şart: sığ kopyada geçmiş yok, tam tarama boş döner
+
+      - name: TruffleHog OSS
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          # `unknown` bilerek dahil: doğrulanamayan bulgu da gösterilir.
+          # Yalnız `verified` denseydi, artık geçersiz ama hâlâ depoda duran
+          # bir anahtar sessizce elenirdi — sır, çalışmıyor olsa bile sırdır.
+          extra_args: --results=verified,unknown

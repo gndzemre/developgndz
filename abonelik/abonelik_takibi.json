@@ -1,0 +1,226 @@
+{
+  "name": "Abonelik takibi: yenileme maillerinden tabloya",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [1],
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "d4000000-0000-4000-8000-000000000001",
+      "name": "Her pazartesi 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 150,
+        "simple": false,
+        "filters": {
+          "q": "newer_than:13m (abonelik OR yenileme OR üyelik OR fatura OR makbuz OR subscription OR renewal OR receipt OR invoice OR \"your plan\")"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000002",
+      "name": "Ödeme mailleri (son 13 ay)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Maili modele gidecek kısa metne indir (gövde 4000 karakterle sınırlı).\nreturn $input.all().map(i => ({ json: {\n  tarih: i.json.date ?? '',\n  gonderen: i.json.from?.text ?? '',\n  konu: i.json.subject ?? '',\n  metin: String(i.json.text ?? '').slice(0, 4000),\n} }));"
+      },
+      "id": "d4000000-0000-4000-8000-000000000003",
+      "name": "Maili sadeleştir",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "text": "=Gönderen: {{ $json.gonderen }}\nKonu: {{ $json.konu }}\nTarih: {{ $json.tarih }}\n\n{{ $json.metin }}",
+        "schemaType": "fromAttributes",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "abonelik_mi",
+              "type": "boolean",
+              "description": "Bu mail düzenli tekrar eden bir abonelik, üyelik ya da plan ödemesinin (veya yenileme hatırlatmasının) maili mi? Tek seferlik alışveriş, kargo, reklam ise false.",
+              "required": true
+            },
+            {
+              "name": "servis",
+              "type": "string",
+              "description": "Servisin ya da markanın kısa adı. Abonelik değilse boş bırak.",
+              "required": false
+            },
+            {
+              "name": "tutar",
+              "type": "number",
+              "description": "Bu dönem için ödenen ya da ödenecek tutar, yalnız sayı. Mailde yoksa 0.",
+              "required": false
+            },
+            {
+              "name": "para_birimi",
+              "type": "string",
+              "description": "ISO kodu: TRY, USD, EUR gibi. Bilinmiyorsa boş.",
+              "required": false
+            },
+            {
+              "name": "donem",
+              "type": "string",
+              "description": "Yalnız şu değerlerden biri: aylik, yillik, haftalik, bilinmiyor.",
+              "required": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000004",
+      "name": "Abonelik mi, ne kadar?",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-haiku-5-5",
+          "cachedResultName": "Claude Haiku 5.5"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000005",
+      "name": "Claude (çıkarıcı)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
+      "position": [660, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aynı servisin maillerini birleştir: kaç farklı ayda görüldü, son tutar, aylık karşılığı.\nconst gruplar = new Map();\n$input.all().forEach((item, i) => {\n  const o = item.json.output || {};\n  if (o.abonelik_mi !== true || !o.servis) return;\n  const mail = $('Maili sadeleştir').itemMatching(i).json;\n  const tarih = new Date(mail.tarih);\n  if (isNaN(tarih)) return;\n  const servis = String(o.servis).trim();\n  const anahtar = servis.toLocaleLowerCase('tr-TR');\n  const g = gruplar.get(anahtar) || { servis, aylar: new Set(), son: null };\n  g.aylar.add(tarih.toISOString().slice(0, 7));\n  if (!g.son || tarih > g.son.tarih) {\n    g.son = { tarih, tutar: Number(o.tutar) || 0, para_birimi: o.para_birimi || '', donem: o.donem || 'bilinmiyor' };\n  }\n  gruplar.set(anahtar, g);\n});\nconst carpan = { aylik: 1, yillik: 1 / 12, haftalik: 52 / 12 };\nconst cikti = [...gruplar.values()].map(g => ({ json: {\n  servis: g.servis,\n  aylik_tutar: Math.round(g.son.tutar * (carpan[g.son.donem] ?? 1) * 100) / 100,\n  para_birimi: g.son.para_birimi,\n  donem: g.son.donem,\n  son_odeme_maili: g.son.tarih.toISOString().slice(0, 10),\n  kac_ayda_goruldu: g.aylar.size,\n  tekrar_ediyor: (g.aylar.size >= 2 || g.son.donem === 'yillik') ? 'evet' : 'belirsiz',\n} }));\ncikti.sort((a, b) => b.json.aylik_tutar - a.json.aylik_tutar);\nreturn cikti;"
+      },
+      "id": "d4000000-0000-4000-8000-000000000006",
+      "name": "Servise göre topla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 0]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "<GOOGLE_SHEETS_ADRESIN>"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Abonelikler"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": ["servis"],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "d4000000-0000-4000-8000-000000000007",
+      "name": "Tabloya dök (Abonelikler)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1120, 0]
+    }
+  ],
+  "connections": {
+    "Her pazartesi 09:00": {
+      "main": [
+        [
+          {
+            "node": "Ödeme mailleri (son 13 ay)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ödeme mailleri (son 13 ay)": {
+      "main": [
+        [
+          {
+            "node": "Maili sadeleştir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Maili sadeleştir": {
+      "main": [
+        [
+          {
+            "node": "Abonelik mi, ne kadar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude (çıkarıcı)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Abonelik mi, ne kadar?",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Abonelik mi, ne kadar?": {
+      "main": [
+        [
+          {
+            "node": "Servise göre topla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Servise göre topla": {
+      "main": [
+        [
+          {
+            "node": "Tabloya dök (Abonelikler)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Istanbul"
+  }
+}

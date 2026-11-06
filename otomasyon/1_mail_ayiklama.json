@@ -1,0 +1,122 @@
+{
+  "name": "1 · Mail ayıklama: acil olanı Telegram'a at",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 5,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "simple": true,
+        "filters": {
+          "q": "-category:promotions -category:social",
+          "readStatus": "unread"
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Gelen kutusu",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "inputText": "=Gönderen: {{ $json.From }}\nKonu: {{ $json.Subject }}\nÖzet: {{ $json.snippet }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "acil",
+              "description": "Bugün içinde cevap ya da işlem gerektiren mail: müşteri talebi, başarısız ödeme, kesinti, son tarihi bugün olan iş, doğrudan sana sorulmuş soru."
+            },
+            {
+              "category": "acil_degil",
+              "description": "Bülten, reklam, bildirim, otomatik rapor, bilgi amaçlı mail ve bekleyebilecek her şey."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "Acil mi?",
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-haiku-5-5",
+          "cachedResultName": "Claude Haiku 5.5"
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "Claude (sınıflandırıcı)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
+      "position": [260, 220]
+    },
+    {
+      "parameters": {
+        "chatId": "<TELEGRAM_CHAT_ID>",
+        "text": "=🔴 Acil mail\nKimden: {{ $('Gelen kutusu').item.json.From }}\nKonu: {{ $('Gelen kutusu').item.json.Subject }}\n\n{{ $('Gelen kutusu').item.json.snippet }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Telefona at (Telegram)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [540, -100]
+    }
+  ],
+  "connections": {
+    "Gelen kutusu": {
+      "main": [
+        [
+          {
+            "node": "Acil mi?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude (sınıflandırıcı)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Acil mi?",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Acil mi?": {
+      "main": [
+        [
+          {
+            "node": "Telefona at (Telegram)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Istanbul"
+  }
+}

@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1590" viewBox="0 0 1200 1590" role="img" aria-labelledby="baslik aciklama">
+  <title id="baslik">Satış botu mimarisi: WhatsApp, Flowise, Supabase</title>
+  <desc id="aciklama">Gece gelen bir WhatsApp mesajının yolu: WhatsApp Cloud API, webhook köprüsü, Flowise AgentFlow V2 ve Supabase ürün tablosu. Bot fiyat ve stoğu tablodan okur.</desc>
+  <defs>
+    <marker id="ok" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f2937"/>
+    </marker>
+    <marker id="ok-gri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6b7280"/>
+    </marker>
+    <style>
+      text { font-family: Inter, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #1a1714; }
+      .baslik { font-size: 38px; font-weight: 700; }
+      .alt { font-size: 21px; fill: #3d362e; }
+      .kutu-baslik { font-size: 26px; font-weight: 700; }
+      .kutu-alt { font-size: 18px; fill: #3d362e; }
+      .satir { font-size: 18px; }
+      .kod { font-family: "JetBrains Mono", Consolas, "Courier New", monospace; font-size: 17px; }
+      .kucuk { font-size: 16px; fill: #3d362e; }
+      .dugum { font-size: 18px; font-weight: 600; }
+      .no { font-size: 15px; font-weight: 700; fill: #ffffff; text-anchor: middle; }
+      .soru { stroke: #1f2937; stroke-width: 2.5; fill: none; }
+      .cevap { stroke: #6b7280; stroke-width: 2.5; fill: none; stroke-dasharray: 8 6; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="1590" fill="#fafaf7"/>
+
+  <!-- Başlık -->
+  <text x="60" y="72" class="baslik">Satış botu mimarisi</text>
+  <text x="60" y="110" class="alt">Gece 03:30'da gelen bir sorunun yolu. Bot fiyatı ve stoğu kendi hafızasından değil, tablodan söyler.</text>
+
+  <!-- 1. sıra: Müşteri ve WhatsApp Cloud API -->
+  <rect x="60" y="150" width="330" height="180" rx="16" fill="#ffffff" stroke="#d1d5db" stroke-width="2"/>
+  <rect x="84" y="176" width="14" height="14" fill="#25d366"/>
+  <text x="108" y="198" class="kutu-baslik">Müşteri</text>
+  <text x="84" y="224" class="kutu-alt">WhatsApp'tan yazar</text>
+  <rect x="84" y="242" width="282" height="68" rx="12" fill="#dcf8c6"/>
+  <text x="100" y="270" class="satir">03:30 · "2500'lük olan</text>
+  <text x="100" y="296" class="satir">hâlâ var mı?"</text>
+
+  <rect x="500" y="150" width="640" height="180" rx="16" fill="#ffffff" stroke="#d1d5db" stroke-width="2"/>
+  <rect x="524" y="176" width="14" height="14" fill="#25d366"/>
+  <text x="548" y="198" class="kutu-baslik">WhatsApp Cloud API (Meta)</text>
+  <text x="524" y="234" class="satir">Gelen mesaj: <tspan class="kod">messages</tspan> webhook'u ile köprüye POST</text>
+  <text x="524" y="264" class="satir">Cevap: <tspan class="kod">POST /&lt;PHONE_NUMBER_ID&gt;/messages</tspan></text>
+  <text x="524" y="294" class="satir">Serbest metin cevap: müşterinin son mesajından</text>
+  <text x="524" y="318" class="satir">sonraki 24 saat içinde (sonrası yalnız şablon mesaj)</text>
+
+  <!-- 1 ve 8 -->
+  <line x1="390" y1="212" x2="496" y2="212" class="soru" marker-end="url(#ok)"/>
+  <circle cx="443" cy="212" r="15" fill="#1f2937"/><text x="443" y="217" class="no">1</text>
+  <line x1="500" y1="282" x2="394" y2="282" class="cevap" marker-end="url(#ok-gri)"/>
+  <circle cx="447" cy="282" r="15" fill="#3d362e"/><text x="447" y="287" class="no">8</text>
+
+  <!-- 2 ve 7 -->
+  <line x1="760" y1="330" x2="760" y2="396" class="soru" marker-end="url(#ok)"/>
+  <circle cx="760" cy="363" r="15" fill="#1f2937"/><text x="760" y="368" class="no">2</text>
+  <line x1="1000" y1="400" x2="1000" y2="334" class="cevap" marker-end="url(#ok-gri)"/>
+  <circle cx="1000" cy="367" r="15" fill="#3d362e"/><text x="1000" y="372" class="no">7</text>
+
+  <!-- 2. sıra: Köprü -->
+  <rect x="60" y="400" width="1080" height="236" rx="16" fill="#ffffff" stroke="#d1d5db" stroke-width="2"/>
+  <rect x="84" y="426" width="14" height="14" fill="#9ca3af"/>
+  <text x="108" y="448" class="kutu-baslik">Köprü: webhook alıcısı</text>
+  <text x="84" y="474" class="kutu-alt">n8n Webhook düğümü ya da küçük bir sunucu fonksiyonu. Meta'nın istek biçimi ile Flowise'ın API'si arasında durur.</text>
+  <text x="84" y="510" class="satir">• GET isteği: <tspan class="kod">hub.verify_token</tspan>'ı kontrol eder, <tspan class="kod">hub.challenge</tspan>'ı geri döner (Meta'nın doğrulaması)</text>
+  <text x="84" y="540" class="satir">• POST isteği: <tspan class="kod">X-Hub-Signature-256</tspan> imzasını uygulama gizli anahtarıyla doğrular, hemen 200 döner</text>
+  <text x="84" y="570" class="satir">• Mesajı Flowise'a iletir: <tspan class="kod">question</tspan> = mesaj metni, <tspan class="kod">sessionId</tspan> = gönderenin numarası</text>
+  <text x="84" y="600" class="satir">• Adres HTTPS olmalı ve sertifika geçerli olmalı (self-signed kabul edilmez)</text>
+
+  <!-- 3 ve 6 -->
+  <line x1="250" y1="636" x2="250" y2="696" class="soru" marker-end="url(#ok)"/>
+  <circle cx="250" cy="666" r="15" fill="#1f2937"/><text x="250" y="671" class="no">3</text>
+  <line x1="520" y1="700" x2="520" y2="640" class="cevap" marker-end="url(#ok-gri)"/>
+  <circle cx="520" cy="670" r="15" fill="#3d362e"/><text x="520" y="675" class="no">6</text>
+
+  <!-- 3. sıra: Flowise -->
+  <rect x="60" y="700" width="640" height="456" rx="16" fill="#ffffff" stroke="#d1d5db" stroke-width="2"/>
+  <rect x="84" y="726" width="14" height="14" fill="#6366f1"/>
+  <text x="108" y="748" class="kutu-baslik">Flowise · AgentFlow V2</text>
+  <text x="84" y="774" class="kutu-alt">Müşterinin ne demek istediğini çözer</text>
+
+  <rect x="84" y="796" width="592" height="52" rx="10" fill="#eef2ff" stroke="#c7d2fe"/>
+  <text x="104" y="829" class="dugum">Start · mesaj + sessionId</text>
+  <line x1="380" y1="848" x2="380" y2="866" class="soru" marker-end="url(#ok)"/>
+  <rect x="84" y="868" width="592" height="60" rx="10" fill="#eef2ff" stroke="#c7d2fe"/>
+  <text x="104" y="896" class="dugum">Condition Agent · niyet</text>
+  <text x="104" y="918" class="kucuk">ürün sorusu / sipariş / başka bir şey</text>
+  <line x1="380" y1="928" x2="380" y2="946" class="soru" marker-end="url(#ok)"/>
+  <rect x="84" y="948" width="592" height="60" rx="10" fill="#eef2ff" stroke="#6366f1" stroke-width="2"/>
+  <text x="104" y="976" class="dugum">Agent · araç: stok_sorgula</text>
+  <text x="104" y="998" class="kucuk">Custom Tool, Supabase REST'e istek atar</text>
+  <line x1="380" y1="1008" x2="380" y2="1026" class="soru" marker-end="url(#ok)"/>
+  <rect x="84" y="1028" width="592" height="52" rx="10" fill="#eef2ff" stroke="#c7d2fe"/>
+  <text x="104" y="1061" class="dugum">Cevap · Agent'ın metni (diğer yollar: Direct Reply)</text>
+  <text x="84" y="1112" class="kod">POST /api/v1/prediction/{id}</text>
+  <text x="84" y="1138" class="kod">Authorization: Bearer &lt;FLOWISE_API_ANAHTARIN&gt;</text>
+
+  <!-- 4 ve 5 -->
+  <line x1="676" y1="970" x2="776" y2="970" class="soru" marker-end="url(#ok)"/>
+  <circle cx="740" cy="970" r="15" fill="#1f2937"/><text x="740" y="975" class="no">4</text>
+  <line x1="780" y1="1040" x2="680" y2="1040" class="cevap" marker-end="url(#ok-gri)"/>
+  <circle cx="740" cy="1040" r="15" fill="#3d362e"/><text x="740" y="1045" class="no">5</text>
+
+  <!-- 3. sıra: Supabase -->
+  <rect x="780" y="700" width="360" height="456" rx="16" fill="#ffffff" stroke="#d1d5db" stroke-width="2"/>
+  <rect x="804" y="726" width="14" height="14" fill="#3ecf8e"/>
+  <text x="828" y="748" class="kutu-baslik">Supabase · Postgres</text>
+  <text x="804" y="774" class="kutu-alt">Stok ve fiyat burada durur</text>
+  <rect x="804" y="796" width="312" height="36" rx="6" fill="#e6f8ef"/>
+  <text x="816" y="820" class="kod" font-weight="700">ad</text>
+  <text x="926" y="820" class="kod" font-weight="700">fiyat</text>
+  <text x="1046" y="820" class="kod" font-weight="700">stok</text>
+  <text x="816" y="856" class="satir">Ürün A</text><text x="926" y="856" class="satir">2.500 TL</text><text x="1046" y="856" class="satir">4</text>
+  <line x1="804" y1="868" x2="1116" y2="868" stroke="#e5e7eb"/>
+  <text x="816" y="890" class="satir">Ürün B</text><text x="926" y="890" class="satir">1.200 TL</text><text x="1046" y="890" class="satir">11</text>
+  <line x1="804" y1="902" x2="1116" y2="902" stroke="#e5e7eb"/>
+  <text x="816" y="924" class="satir">Ürün C</text><text x="926" y="924" class="satir">3.900 TL</text><text x="1046" y="924" class="satir" fill="#b42318" font-weight="700">0 (bitti)</text>
+  <text x="804" y="958" class="kucuk">+ siparis_linki sütunu</text>
+  <text x="804" y="982" class="kucuk">Ürün adları ve rakamlar örnek</text>
+  <text x="804" y="1030" class="satir">• RLS açık, yalnız okuma izni</text>
+  <text x="804" y="1058" class="satir">• Bot publishable key kullanır</text>
+  <text x="804" y="1086" class="satir">• Secret key RLS'yi aşar: bota verme</text>
+
+  <!-- Kural kutusu -->
+  <rect x="60" y="1196" width="1080" height="160" rx="16" fill="#fff7e6" stroke="#f0b429" stroke-width="2"/>
+  <text x="84" y="1240" class="kutu-baslik">İşin püf noktası: bot cevabı uydurmaz</text>
+  <text x="84" y="1276" class="satir">• Fiyat ve stok yalnız stok_sorgula aracından dönen satırdan söylenir (sistem promptunda yazılı kural).</text>
+  <text x="84" y="1306" class="satir">• Tabloda yoksa "bilmiyorum, sabah dönüş yapılacak" der; stok 0 ise "var" demez.</text>
+  <text x="84" y="1336" class="satir">• Bot ödeme almaz: sipariş linkini atar, sipariş senin satış sayfanda oluşur ve sabah seni bekler.</text>
+
+  <!-- Sıra açıklaması -->
+  <text x="60" y="1404" class="kutu-baslik" font-size="22">Akışın sırası</text>
+  <line x1="880" y1="1398" x2="940" y2="1398" class="soru"/>
+  <text x="950" y="1404" class="kucuk">soru</text>
+  <line x1="1010" y1="1398" x2="1070" y2="1398" class="cevap"/>
+  <text x="1080" y="1404" class="kucuk">cevap</text>
+
+  <circle cx="74" cy="1438" r="13" fill="#1f2937"/><text x="74" y="1443" class="no">1</text>
+  <text x="96" y="1444" class="satir">Müşteri yazar.</text>
+  <circle cx="74" cy="1470" r="13" fill="#1f2937"/><text x="74" y="1475" class="no">2</text>
+  <text x="96" y="1476" class="satir">Meta, mesajı köprüye POST eder.</text>
+  <circle cx="74" cy="1502" r="13" fill="#1f2937"/><text x="74" y="1507" class="no">3</text>
+  <text x="96" y="1508" class="satir">Köprü, metni Flowise'a gönderir.</text>
+  <circle cx="74" cy="1534" r="13" fill="#1f2937"/><text x="74" y="1539" class="no">4</text>
+  <text x="96" y="1540" class="satir">Agent tabloyu sorgular: <tspan class="kod">GET /rest/v1/urunler?fiyat=eq.2500</tspan></text>
+
+  <circle cx="654" cy="1438" r="13" fill="#3d362e"/><text x="654" y="1443" class="no">5</text>
+  <text x="676" y="1444" class="satir">Supabase satırı döner: 4 adet · 2.500 TL · link.</text>
+  <circle cx="654" cy="1470" r="13" fill="#3d362e"/><text x="654" y="1475" class="no">6</text>
+  <text x="676" y="1476" class="satir">Flowise cevap metnini köprüye döner.</text>
+  <circle cx="654" cy="1502" r="13" fill="#3d362e"/><text x="654" y="1507" class="no">7</text>
+  <text x="676" y="1508" class="satir">Köprü, cevabı Cloud API'ye POST eder.</text>
+  <circle cx="654" cy="1534" r="13" fill="#3d362e"/><text x="654" y="1539" class="no">8</text>
+  <text x="676" y="1540" class="satir">Müşteri cevabı WhatsApp'ta görür.</text>
+
+  <text x="60" y="1574" class="kucuk" font-size="14">developgndz · Şema yeteneklerin resmî belgelere göre çizildi; ürün adları ve rakamlar örnektir.</text>
+</svg>
